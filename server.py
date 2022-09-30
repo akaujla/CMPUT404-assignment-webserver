@@ -37,44 +37,51 @@ class MyWebServer(socketserver.BaseRequestHandler):
         data = self.data.split(b' ')
 
         # Check if method is GET
+        redirect = False
         if bytes("GET", 'utf-8') == data[0]:
             path = data[1].decode('utf-8')
-            print("Path is", path)
 
-            if path == '/':
-                self.request.send(bytes("HTTP/1.1 200 OK\r\n", 'utf-8'))
 
             # open file
-            else:
-                try:
-                    print("www" in path)
-                    cur_dir = os.path.abspath(os.getcwd())
-                    if 'www' in path:
-                        print("cur dir type is", type(cur_dir))
-                        path = str(cur_dir) + path
-                    else:
-                        path = str(cur_dir) + "/www" + path
+            try:
+                cur_dir = os.path.abspath(os.getcwd())
+                if 'www' in path:
+                    path = str(cur_dir) + path
+                else:
+                    path = str(cur_dir) + "/www" + path
 
-                    print("new path is", path)
+                if path[-1] == '/':
+                    path = path + 'index.html'
+                else:
+                    if path[-4:] != 'html' and path[-3:] != 'css':
+                        try:
+                            redirect = True
+                            path = path + '/index.html'
+                            file = open(path)
+                            self.request.sendall(bytearray("HTTP/1.1 301 Moved Permanently\r\nLocation: " + path + '/' + "\r\n", 'utf-8'))
+                        except IOError:
+                            self.request.send(bytes("HTTP/1.1 404 Not Found\r\n", 'utf-8'))
+                
+
+                if not redirect:
                     file = open(path)
                     file_type = path.split('.')[1]
-                    print("file type is", file_type)
                     output_data = file.read()
 
                     if file_type == 'html':
-                        self.request.send(bytes("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: " + str(len(output_data)) + "\r\n" + output_data, 'utf-8'))
+                        self.request.send(bytes("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n" + output_data, 'utf-8'))
                     elif file_type == 'css':
-                        self.request.send(bytes("HTTP/1.1 200 OK\r\nContent-Type: text/css\r\nContent-Length: " + str(len(output_data)) + "\r\n" + output_data, 'utf-8'))
-                
-                except IOError:
-                    print("ERRRRRRRRRRRRRRRRROR")
-                    self.request.send(bytes("HTTP/1.1 404 Not Found\r\n", 'utf-8'))
+                        self.request.send(bytes("HTTP/1.1 200 OK\r\nContent-Type: text/css\r\n" + output_data, 'utf-8'))
+                    else:
+                        self.request.send(bytes("HTTP/1.1 404 Not Found\r\n", 'utf-8'))
+            
+            except IOError:
+                self.request.send(bytes("HTTP/1.1 404 Not Found\r\n", 'utf-8'))
 
         else:
             self.request.send(bytes("HTTP/1.1 405 Method Not Allowed\r\n", 'utf-8'))
 
 
-        self.request.sendall(bytearray("OK",'utf-8'))
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
